@@ -1,0 +1,62 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "James Whitehead"
+date: "28 January 2017"
+output: html_document
+---
+
+#Synopsis
+
+The purpose of the project is to predict the manner in which participants perform barbell lifts. Six participants performed the lifts correctly and incorrectly in five different ways. Accelerometers were fitted on the belt, forearm, arm, and dumbell of each participant, and it is data from these that are used to predict the activity.
+
+The data for this project come from: http://groupware.les.inf.puc-rio.br/har.
+
+#Data cleaning and splitting
+
+First, read in the training and testing data, removing columns that predominantly contain missing values. Also remove the first 7 columns as they don't contain accelerometer data.
+
+```{r, message=FALSE, warning=FALSE}
+library(caret); library(rpart); library(rattle); library(rpart.plot)
+library(randomForest)
+training <- read.csv("pml-training.csv", na.strings = c("", "NA"))
+training <- training[,colSums(is.na(training))==0]
+testing <- read.csv("pml-testing.csv")
+training2 <- training[,-c(1:7)]
+```
+
+Now split the training data into subsets including a validation data set for testing the models.
+
+```{r}
+set.seed(147)
+inTrain <- createDataPartition(training2$classe, p=0.75, list=FALSE)
+trainSet <- training2[inTrain,]
+validSet <- training2[-inTrain,]
+```
+
+#Prediction
+
+First try classification trees.
+
+```{r, cache=TRUE}
+modTREE <- train(classe~., trainSet, method="rpart")
+predTREE <- predict(modTREE, validSet)
+fancyRpartPlot(modTREE$finalModel)
+confusionMatrix(validSet$classe, predTREE)
+```
+
+Clearly the accuracy is rather poor, with an out-of-sample error rate of 0.51. Better accuracy may be achieved using a random forests algorithm:
+
+```{r, cache=TRUE}
+modRF <- train(classe ~., data=trainSet, method="rf")
+predRF <- predict(modRF, validSet)
+confusionMatrix(validSet$classe, predRF)
+```
+
+This performed much better, with an accuracy of 0.9941, meaning an out-of-sample error rate of 0.0059. However, the random forests algorith is very time consuming, and scalability may be an issue.
+
+Finally apply the prediction to the test set.
+
+```{r}
+predTEST <- predict(modRF, testing)
+predTEST
+```
